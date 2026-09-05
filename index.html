@@ -37,6 +37,35 @@
     background: #4ecdc4; color: #0f2027; border: none; border-radius: 24px;
     cursor: pointer; font-weight: bold; letter-spacing: 2px;
   }
+  .dpad {
+    margin-top: 16px;
+    display: none;
+    grid-template-columns: 64px 64px 64px;
+    grid-template-rows: 64px 64px 64px;
+    gap: 6px;
+  }
+  @media (max-width: 768px), (pointer: coarse) {
+    .dpad { display: grid; }
+  }
+  .dpad-btn {
+    background: rgba(78,205,196,.15);
+    border: 2px solid rgba(78,205,196,.7);
+    border-radius: 10px;
+    color: #4ecdc4;
+    font-size: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .dpad-btn:active { background: rgba(78,205,196,.45); }
+  #btnUp { grid-column: 2; grid-row: 1; }
+  #btnLeft { grid-column: 1; grid-row: 2; }
+  #btnRight { grid-column: 3; grid-row: 2; }
+  #btnDown { grid-column: 2; grid-row: 3; }
   .hint { margin-top: 12px; font-size: 12px; color: rgba(255,255,255,.55); text-align: center; line-height: 1.7; }
 </style>
 </head>
@@ -49,9 +78,15 @@
   <canvas id="board" width="400" height="400"></canvas>
   <div id="msg">按开始键或空格开始游戏</div>
   <button class="btn" id="startBtn">开始游戏</button>
+  <div class="dpad" id="dpad">
+    <div class="dpad-btn" id="btnUp">▲</div>
+    <div class="dpad-btn" id="btnLeft">◀</div>
+    <div class="dpad-btn" id="btnRight">▶</div>
+    <div class="dpad-btn" id="btnDown">▼</div>
+  </div>
   <div class="hint">
     电脑：方向键 / WASD 控制，空格暂停<br>
-    手机：在画面上下左右滑动控制方向
+    手机：使用下方虚拟方向键或直接滑动画面控制方向
   </div>
 
 <script>
@@ -205,6 +240,15 @@
 
   document.getElementById('startBtn').addEventListener('click', ()=>{
     if(!playing) start(); else msg.textContent = '进行中，空格暂停';
+  });
+
+  // 虚拟方向键
+  const dpadMap = { btnUp:[0,-1], btnDown:[0,1], btnLeft:[-1,0], btnRight:[1,0] };
+  Object.keys(dpadMap).forEach(id=>{
+    const el = document.getElementById(id);
+    const press = (e)=>{ e.preventDefault(); setDir(dpadMap[id][0], dpadMap[id][1]); };
+    el.addEventListener('touchstart', press, {passive:false});
+    el.addEventListener('mousedown', press);
   });
 
   init();
