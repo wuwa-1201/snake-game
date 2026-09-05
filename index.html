@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>贪吃蛇 Snake</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: #fff;
+    user-select: none;
+  }
+  h1 { font-size: 28px; margin-bottom: 12px; letter-spacing: 4px; text-shadow: 0 2px 8px rgba(0,0,0,.4); }
+  .panel { display: flex; gap: 24px; margin-bottom: 14px; font-size: 16px; }
+  .panel span b { color: #4ecdc4; font-size: 20px; }
+  #board {
+    background: #081418;
+    border: 3px solid #4ecdc4;
+    box-shadow: 0 0 30px rgba(78,205,196,.35);
+    border-radius: 8px;
+    touch-action: none;
+    display: block;
+  }
+  #msg {
+    margin-top: 14px; font-size: 16px; min-height: 24px;
+    color: #ffd166;
+  }
+  .btn {
+    margin-top: 8px; padding: 10px 28px; font-size: 16px;
+    background: #4ecdc4; color: #0f2027; border: none; border-radius: 24px;
+    cursor: pointer; font-weight: bold; letter-spacing: 2px;
+  }
+  .hint { margin-top: 12px; font-size: 12px; color: rgba(255,255,255,.55); text-align: center; line-height: 1.7; }
+</style>
+</head>
+<body>
+  <h1>贪吃蛇</h1>
+  <div class="panel">
+    <span>得分 <b id="score">0</b></span>
+    <span>最高 <b id="best">0</b></span>
+  </div>
+  <canvas id="board" width="400" height="400"></canvas>
+  <div id="msg">按开始键或空格开始游戏</div>
+  <button class="btn" id="startBtn">开始游戏</button>
+  <div class="hint">
+    电脑：方向键 / WASD 控制，空格暂停<br>
+    手机：在画面上下左右滑动控制方向
+  </div>
+
+<script>
+(function(){
+  const canvas = document.getElementById('board');
+  const ctx = canvas.getContext('2d');
+  const msg = document.getElementById('msg');
+  const scoreEl = document.getElementById('score');
+  const bestEl = document.getElementById('best');
+
+  const N = 20;            // 20x20 网格
+  const CELL = canvas.width / N;
+  let snake, dir, nextDir, food, score, best, timer, playing, paused;
+
+  best = parseInt(localStorage.getItem('snake_best') || '0', 10);
+  bestEl.textContent = best;
+
+  function init(){
+    snake = [{x:10,y:10},{x:9,y:10},{x:8,y:10}];
+    dir = {x:1,y:0}; nextDir = {x:1,y:0};
+    score = 0; scoreEl.textContent = 0;
+    playing = false; paused = false;
+    placeFood();
+    draw();
+  }
+
+  function placeFood(){
+    while(true){
+      const f = {x: Math.floor(Math.random()*N), y: Math.floor(Math.random()*N)};
+      if(!snake.some(s=>s.x===f.x && s.y===f.y)){ food = f; return; }
+    }
+  }
+
+  function draw(){
+    ctx.fillStyle = '#081418';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    // 网格
+    ctx.strokeStyle = 'rgba(78,205,196,.08)';
+    ctx.lineWidth = 1;
+    for(let i=0;i<=N;i++){
+      ctx.beginPath(); ctx.moveTo(i*CELL,0); ctx.lineTo(i*CELL,canvas.height); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0,i*CELL); ctx.lineTo(canvas.width,i*CELL); ctx.stroke();
+    }
+    // 食物
+    ctx.fillStyle = '#ff6b6b';
+    ctx.shadowColor = '#ff6b6b'; ctx.shadowBlur = 12;
+    roundRect(food.x*CELL+2, food.y*CELL+2, CELL-4, CELL-4, 6);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    // 蛇
+    snake.forEach((s,i)=>{
+      const g = 220 - i*6;
+      ctx.fillStyle = i===0 ? '#4ecdc4' : `rgb(${g},${g},220)`;
+      ctx.shadowColor = '#4ecdc4'; ctx.shadowBlur = i===0 ? 14 : 4;
+      roundRect(s.x*CELL+2, s.y*CELL+2, CELL-4, CELL-4, 5);
+      ctx.fill();
+    });
+    ctx.shadowBlur = 0;
+  }
+
+  function roundRect(x,y,w,h,r){
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);
+    ctx.arcTo(x+w,y,x+w,y+h,r);
+    ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r);
+    ctx.arcTo(x,y,x+w,y,r);
+    ctx.closePath();
+  }
+
+  function step(){
+    if(!playing || paused) return;
+    dir = nextDir;
+    const head = {x: snake[0].x + dir.x, y: snake[0].y + dir.y};
+    // 撞墙或撞自己
+    if(head.x<0||head.y<0||head.x>=N||head.y>=N||snake.some(s=>s.x===head.x&&s.y===head.y)){
+      gameOver(); return;
+    }
+    snake.unshift(head);
+    if(head.x===food.x && head.y===food.y){
+      score++; scoreEl.textContent = score;
+      if(score>best){ best=score; bestEl.textContent=best; localStorage.setItem('snake_best', best); }
+      placeFood();
+    } else {
+      snake.pop();
+    }
+    draw();
+  }
+
+  function gameOver(){
+    playing = false;
+    msg.textContent = '游戏结束，得分 ' + score;
+    draw();
+  }
+
+  function start(){
+    init();
+    playing = true; paused = false;
+    msg.textContent = '';
+    draw();
+    if(timer) clearInterval(timer);
+    timer = setInterval(step, 120);
+  }
+
+  function togglePause(){
+    if(!playing) return;
+    paused = !paused;
+    msg.textContent = paused ? '已暂停' : '';
+  }
+
+  function setDir(dx,dy){
+    // 禁止逆向
+    if(dir.x===-dx && dir.y===-dy) return;
+    if(dir.x===dx && dir.y===dy) return;
+    nextDir = {x:dx,y:dy};
+  }
+
+  document.addEventListener('keydown', e=>{
+    const k = e.key;
+    if(k===' '){ e.preventDefault(); togglePause(); }
+    if(k==='Enter' && !playing){ start(); }
+    const map = {
+      ArrowUp:[0,-1], w:[0,-1], W:[0,-1],
+      ArrowDown:[0,1], s:[0,1], S:[0,1],
+      ArrowLeft:[-1,0], a:[-1,0], A:[-1,0],
+      ArrowRight:[1,0], d:[1,0], D:[1,0]
+    };
+    if(map[k]){ e.preventDefault(); setDir(map[k][0], map[k][1]); }
+  });
+
+  // 触屏滑动
+  let touchX=null, touchY=null;
+  canvas.addEventListener('touchstart', e=>{
+    const t = e.touches[0];
+    touchX = t.clientX; touchY = t.clientY;
+  }, {passive:true});
+  canvas.addEventListener('touchend', e=>{
+    if(touchX===null) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - touchX, dy = t.clientY - touchY;
+    touchX = null; touchY = null;
+    if(Math.abs(dx) < 20 && Math.abs(dy) < 20) return;
+    if(Math.abs(dx) > Math.abs(dy)) setDir(dx>0?1:-1, 0);
+    else setDir(0, dy>0?1:-1);
+  });
+
+  document.getElementById('startBtn').addEventListener('click', ()=>{
+    if(!playing) start(); else msg.textContent = '进行中，空格暂停';
+  });
+
+  init();
+  draw();
+})();
+</script>
+</body>
+</html>
